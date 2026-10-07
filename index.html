@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Тренажёр ЕГЭ</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#EEF2F8; --card:#FFFFFF; --text:#14161A; --hint:#8A93A3; --line:#E3E8F0;
+  --accent:#2F6BFF; --accent-soft:#E6EEFF; --accent-text:#FFFFFF;
+  --ok:#22A55B; --ok-soft:#E3F6EA; --bad:#E5484D; --bad-soft:#FDE8E8; --disabled:#B8C0CC;
+}
+:root.dark{
+  --bg:#0F1115; --card:#1B1E24; --text:#F2F4F7; --hint:#8B93A1; --line:#2A2E36;
+  --accent:#4C82FF; --accent-soft:#1E2A44; --ok-soft:#14301F; --bad-soft:#3A1A1C; --disabled:#3A404B;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.screen{max-width:560px;margin:0 auto;padding:16px 16px 120px;min-height:100vh}
+.hdr{display:flex;align-items:center;gap:12px;min-height:48px;margin-bottom:8px}
+.hdr h1{flex:1;min-width:0;margin:0;font-size:18px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.round{width:44px;height:44px;border-radius:50%;border:none;background:var(--card);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 2px 8px rgba(20,22,26,.06)}
+.spacer{width:44px;flex:0 0 auto}
+.hero{background:var(--accent);color:#fff;border-radius:24px;padding:22px 20px;margin-bottom:16px}
+.hero .t{font-size:24px;font-weight:800;line-height:1.15}
+.hero .s{opacity:.85;margin-top:6px;font-size:15px}
+.hero .bar{height:8px;background:rgba(255,255,255,.25);border-radius:99px;margin-top:16px;overflow:hidden}
+.hero .bar i{display:block;height:100%;background:#fff;border-radius:99px}
+.hero .meta{display:flex;justify-content:space-between;font-size:13px;opacity:.9;margin-top:8px}
+.panel{background:var(--card);border-radius:24px;padding:20px 16px}
+.panel h2{margin:0 0 14px 4px;font-size:22px;font-weight:800;display:flex;align-items:center;gap:10px}
+.subj{width:100%;display:flex;align-items:center;gap:14px;border:none;background:var(--bg);border-radius:18px;padding:16px;text-align:left;font-size:17px;margin-bottom:10px}
+.subj .ic{width:40px;height:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto}
+.subj .nm{flex:1}
+.subj .sm{display:block;font-size:13px;color:var(--hint);margin-top:2px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:4px -16px 18px;padding:0 16px}
+.tab{flex:1;border:none;background:none;padding:12px 4px 14px;font-size:17px;color:var(--hint);position:relative;font-weight:600}
+.tab.on{color:var(--text)}
+.tab.on::after{content:"";position:absolute;left:12%;right:12%;bottom:-1px;height:4px;border-radius:4px 4px 0 0;background:var(--accent)}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:22px 4px 12px}
+.sec b{font-size:22px;font-weight:800}
+.link{border:none;background:none;color:var(--accent);font-size:16px;font-weight:600;padding:8px 0}
+.chips{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.chip{aspect-ratio:1/1;border:2px solid transparent;border-radius:16px;background:var(--card);font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;position:relative;transition:background .15s,color .15s}
+.chip.on{background:var(--accent);color:var(--accent-text)}
+.chip .d{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.chip.on .d{background:#fff}
+.box{background:var(--card);border-radius:20px;padding:4px 18px;margin-top:22px}
+.opt{display:flex;align-items:center;gap:14px;padding:16px 0;border:none;background:none;width:100%;text-align:left;font-size:16px;line-height:1.35}
+.opt + .opt{border-top:1px solid var(--line)}
+.opt .lb{flex:1}
+.opt .lb small{display:block;color:var(--hint);font-size:13px;margin-top:2px}
+.cb{width:28px;height:28px;border-radius:8px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.cb.on{background:var(--accent);border-color:var(--accent)}
+.cb svg{display:none}.cb.on svg{display:block}
+.bottom{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,rgba(0,0,0,0))}
+.bottom .in{max-width:528px;margin:0 auto}
+.main{width:100%;height:56px;border:none;border-radius:18px;background:var(--accent);color:var(--accent-text);font-size:17px;font-weight:700}
+.main:disabled{background:var(--disabled);cursor:default}
+.count{font-size:13px;color:var(--hint);text-align:center;margin-bottom:8px;min-height:16px}
+.prog{display:flex;align-items:center;gap:10px;margin:2px 0 14px}
+.prog .bar{flex:1;height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.prog .bar i{display:block;height:100%;background:var(--accent)}
+.prog span{font-size:13px;color:var(--hint);font-weight:600}
+.card{background:var(--card);border-radius:22px;padding:18px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:6px 10px;border-radius:99px;margin-bottom:12px}
+.q{font-size:17px;line-height:1.55;white-space:pre-line}
+.ansrow{display:flex;gap:10px;margin-top:16px}
+.ansrow input{flex:1;min-width:0;height:52px;border-radius:14px;border:2px solid var(--line);background:var(--bg);color:var(--text);font-size:17px;padding:0 14px;outline:none}
+.ansrow input:focus{border-color:var(--accent)}
+.ansrow input.ok{border-color:var(--ok)}.ansrow input.bad{border-color:var(--bad)}
+.btn2{height:52px;border:none;border-radius:14px;background:var(--accent);color:var(--accent-text);font-weight:700;font-size:16px;padding:0 18px}
+.fb{margin-top:12px;padding:12px 14px;border-radius:14px;font-weight:600;font-size:15px}
+.fb.ok{background:var(--ok-soft);color:var(--ok)}.fb.bad{background:var(--bad-soft);color:var(--bad)}
+.acc{margin-top:12px;background:var(--card);border-radius:20px;overflow:hidden}
+.acc > button{width:100%;border:none;background:none;display:flex;justify-content:space-between;align-items:center;padding:16px 18px;font-size:16px;font-weight:600;text-align:left}
+.acc .body{padding:0 18px 18px;font-size:15px;line-height:1.6}
+.acc .body ul,.acc .body ol{margin:0;padding-left:20px}
+.acc .body li{margin-bottom:6px}
+.acc .tip{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--accent-soft);font-size:14px}
+.acc .final{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--ok-soft);font-weight:700}
+.chev{transition:transform .2s;color:var(--hint)}
+.acc.open .chev{transform:rotate(180deg)}
+.res{text-align:center;padding:30px 18px}
+.res .big{font-size:56px;font-weight:800;color:var(--accent);line-height:1}
+.res p{color:var(--hint);margin:10px 0 0;font-size:16px}
+.rlist{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.ritem{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:12px 14px;font-size:15px}
+.ritem .st{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex:0 0 auto}
+.st.ok{background:var(--ok-soft);color:var(--ok)}.st.bad{background:var(--bad-soft);color:var(--bad)}.st.sk{background:var(--line);color:var(--hint)}
+.empty{text-align:center;color:var(--hint);padding:40px 10px;font-size:15px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DATA = [
+{n:1, part:1, topic:"Планиметрия",
+ how:["Отметь на чертеже всё, что дано, и что нужно найти.","Прямоугольный треугольник → теорема Пифагора, синус, косинус, тангенс.","Сумма углов треугольника 180°, в равнобедренном углы при основании равны.","Вписанный угол равен половине дуги, на которую опирается."],
+ tip:"Ответ всегда — целое число или конечная десятичная дробь. Получилось √ или π — проверь, что именно спрашивают.",
+ tasks:[
+  {q:"В треугольнике ABC угол C равен 90°, AB = 10, BC = 6. Найдите AC.", a:"8",
+   s:["Треугольник прямоугольный, AB — гипотенуза.","По теореме Пифагора: AC² = AB² − BC² = 100 − 36 = 64.","AC = √64 = 8."]},
+  {q:"В равнобедренном треугольнике ABC с основанием AC угол B равен 40°. Найдите угол A. Ответ дайте в градусах.", a:"70",
+   s:["В равнобедренном треугольнике углы при основании равны: ∠A = ∠C.","Сумма углов 180°: ∠A + ∠C = 180° − 40° = 140°.","∠A = 140° : 2 = 70°."]},
+  {q:"Вписанный угол ACB опирается на дугу AB, градусная мера которой равна 110°. Найдите угол ACB. Ответ дайте в градусах.", a:"55",
+   s:["Вписанный угол равен половине дуги, на которую он опирается.","∠ACB = 110° : 2 = 55°."]}
+ ]},
+{n:2, part:1, topic:"Векторы",
+ how:["Длина вектора a(x; y): |a| = √(x² + y²).","Сумма и разность — покоординатно: a ± b = (x₁ ± x₂; y₁ ± y₂).","Умножение на число: k·a = (kx; ky).","Скалярное произведение: a·b = x₁x₂ + y₁y₂. Если оно равно 0, векторы перпендикулярны."],
+ tip:"Читай вопрос внимательно: спрашивают длину, координату (абсциссу/ординату) или скалярное произведение.",
+ tasks:[
+  {q:"Дан вектор a(3; 4). Найдите длину вектора a.", a:"5",
+   s:["|a| = √(3² + 4²) = √(9 + 16) = √25 = 5."]},
+  {q:"Даны векторы a(2; −1) и b(3; 4). Найдите скалярное произведение a·b.", a:"2",
+   s:["a·b = x₁x₂ + y₁y₂.","a·b = 2·3 + (−1)·4 = 6 − 4 = 2."]},
+  {q:"Даны векторы a(1; 2) и b(−3; 5). Найдите абсциссу вектора 2a − b.", a:"5",
+   s:["Абсцисса — это первая координата (x).","2a = (2; 4).","2a − b = (2 − (−3); 4 − 5) = (5; −1).","Абсцисса равна 5."]}
+ ]},
+{n:3, part:1, topic:"Стереометрия",
+ how:["Выпиши формулы объёма и площади поверхности нужной фигуры.","Куб: V = a³, S = 6a². Параллелепипед: V = abc, диагональ d = √(a² + b² + c²).","Цилиндр: V = πr²h. Конус: V = ⅓πr²h. Шар: V = ⁴⁄₃πr³.","Если просят «V/π» — просто не умножай на π."],
+ tip:"Если фигуру увеличили в k раз по всем измерениям, площадь растёт в k², а объём — в k³ раз.",
+ tasks:[
+  {q:"Объём куба равен 27. Найдите площадь его поверхности.", a:"54",
+   s:["V = a³ = 27, значит ребро a = 3.","S = 6a² = 6 · 9 = 54."]},
+  {q:"Радиус основания цилиндра равен 3, высота равна 4. Найдите объём цилиндра, делённый на π.", a:"36",
+   s:["V = πr²h = π · 9 · 4 = 36π.","V/π = 36."]},
+  {q:"Рёбра прямоугольного параллелепипеда равны 2, 3 и 6. Найдите его диагональ.", a:"7",
+   s:["d = √(a² + b² + c²).","d = √(4 + 9 + 36) = √49 = 7."]}
+ ]},
+{n:4, part:1, topic:"Теория вероятностей",
+ how:["Вероятность = (число подходящих исходов) / (число всех исходов).","Посчитай все возможные исходы, потом — только «нужные».","Вероятность противоположного события: P(не A) = 1 − P(A).","Ответ всегда от 0 до 1."],
+ tip:"Если ответ получился бесконечной дробью — скорее всего, ошибка в подсчёте исходов.",
+ tasks:[
+  {q:"В сборнике 25 билетов по биологии, только в 4 из них есть вопрос о грибах. Найдите вероятность того, что школьнику НЕ достанется вопрос о грибах.", a:"0,84",
+   s:["Билетов без вопроса о грибах: 25 − 4 = 21.","P = 21/25 = 0,84."]},
+  {q:"Монету бросают дважды. Найдите вероятность того, что орёл выпадет ровно один раз.", a:"0,5",
+   s:["Все исходы: ОО, ОР, РО, РР — их 4.","Ровно один орёл: ОР и РО — 2 исхода.","P = 2/4 = 0,5."]},
+  {q:"В соревнованиях участвуют 20 спортсменов: 8 из России, 7 из Германии, остальные из Китая. Порядок выступлений определяется жребием. Найдите вероятность того, что первым будет выступать спортсмен из Китая.", a:"0,25",
+   s:["Спортсменов из Китая: 20 − 8 − 7 = 5.","P = 5/20 = 0,25."]}
+ ]},
+{n:5, part:1, topic:"Вероятности сложных событий",
+ how:["Независимые события, которые должны произойти вместе («и») → вероятности перемножаются.","Несовместные события («или», одно исключает другое) → вероятности складываются.","«Хотя бы один» удобнее считать через противоположное: 1 − P(ни одного).","Вложенные события: P(больше года, но меньше двух) = P(> 1 года) − P(> 2 лет)."],
+ tip:"Перед решением ответь себе: события независимы? несовместны? Это определяет, умножать или складывать.",
+ tasks:[
+  {q:"Вероятность того, что новый чайник прослужит больше года, равна 0,93. Вероятность того, что он прослужит больше двух лет, равна 0,87. Найдите вероятность того, что он прослужит больше года, но меньше двух лет.", a:"0,06",
+   s:["Событие «больше двух лет» входит в событие «больше года».","P = 0,93 − 0,87 = 0,06."]},
+  {q:"Стрелок попадает в мишень с вероятностью 0,8. Он стреляет 3 раза. Найдите вероятность того, что он попадёт все три раза.", a:"0,512",
+   s:["Выстрелы независимы, нужны три попадания подряд → перемножаем.","P = 0,8 · 0,8 · 0,8 = 0,512."]},
+  {q:"В кафе два кофейных автомата. Каждый независимо от другого может оказаться неисправным с вероятностью 0,1. Найдите вероятность того, что хотя бы один автомат исправен.", a:"0,99",
+   s:["Противоположное событие: оба неисправны.","P(оба неисправны) = 0,1 · 0,1 = 0,01.","P(хотя бы один исправен) = 1 − 0,01 = 0,99."]}
+ ]},
+{n:6, part:1, topic:"Простейшие уравнения",
+ how:["Показательное: приведи обе части к одному основанию и приравняй степени.","Логарифмическое: logₐ f(x) = b ⇒ f(x) = aᵇ (не забудь f(x) > 0).","Иррациональное: возведи в квадрат и обязательно сделай проверку.","Если корней несколько — смотри, какой просят записать (больший/меньший)."],
+ tip:"Подставь найденный корень в исходное уравнение — это 10 секунд, которые спасают балл.",
+ tasks:[
+  {q:"Найдите корень уравнения 2ˣ⁻³ = 16.", a:"7",
+   s:["16 = 2⁴, значит 2ˣ⁻³ = 2⁴.","x − 3 = 4.","x = 7."]},
+  {q:"Найдите корень уравнения log₅(3x + 1) = 2.", a:"8",
+   s:["По определению логарифма: 3x + 1 = 5² = 25.","3x = 24, x = 8.","Проверка: 3·8 + 1 = 25 > 0 — корень подходит."]},
+  {q:"Найдите корень уравнения √(2x + 3) = 5.", a:"11",
+   s:["Возводим обе части в квадрат: 2x + 3 = 25.","2x = 22, x = 11.","Проверка: √(22 + 3) = √25 = 5 — верно."]}
+ ]},
+{n:7, part:1, topic:"Вычисления и преобразования",
+ how:["Степени: aᵐ · aⁿ = aᵐ⁺ⁿ, (aᵐ)ⁿ = aᵐⁿ. Приводи всё к одному основанию.","Логарифмы: logₐ x − logₐ y = logₐ(x/y), logₐ x + logₐ y = logₐ(xy).","Корни: используй формулы сокращённого умножения, например (a − b)(a + b) = a² − b².","Не считай «в лоб» — ищи, что сократится."],
+ tip:"Почти все ответы в №7 — «красивые» числа. Если вышло что-то странное, перепроверь.",
+ tasks:[
+  {q:"Найдите значение выражения 5⁰·⁴ · 25⁰·⁸.", a:"25",
+   s:["25 = 5², значит 25⁰·⁸ = 5¹·⁶.","5⁰·⁴ · 5¹·⁶ = 5⁰·⁴⁺¹·⁶ = 5² = 25."]},
+  {q:"Найдите значение выражения log₂ 48 − log₂ 3.", a:"4",
+   s:["Разность логарифмов = логарифм частного.","log₂(48/3) = log₂ 16 = 4."]},
+  {q:"Найдите значение выражения (√13 − √7)(√13 + √7).", a:"6",
+   s:["Формула (a − b)(a + b) = a² − b².","(√13)² − (√7)² = 13 − 7 = 6."]}
+ ]},
+{n:8, part:1, topic:"Производная",
+ how:["Основные производные: (xⁿ)′ = nxⁿ⁻¹, (c)′ = 0, (kx)′ = k.","Скорость — это производная от координаты: v(t) = x′(t).","Касательная параллельна прямой y = kx + b ⇒ f′(x₀) = k.","Производная > 0 — функция растёт, < 0 — убывает, = 0 — возможный экстремум."],
+ tip:"Угловой коэффициент касательной = значение производной в точке касания.",
+ tasks:[
+  {q:"Материальная точка движется по закону x(t) = t³ − 3t² + 5t (x — в метрах, t — в секундах). Найдите её скорость (м/с) в момент t = 2 с.", a:"5",
+   s:["v(t) = x′(t) = 3t² − 6t + 5.","v(2) = 3·4 − 6·2 + 5 = 12 − 12 + 5 = 5."]},
+  {q:"Прямая y = 5x − 3 параллельна касательной к графику функции y = x² + 3x + 1. Найдите абсциссу точки касания.", a:"1",
+   s:["У параллельных прямых равны угловые коэффициенты, значит f′(x₀) = 5.","f′(x) = 2x + 3.","2x₀ + 3 = 5, x₀ = 1."]},
+  {q:"Найдите значение производной функции f(x) = 4x³ − 2x + 7 в точке x = 1.", a:"10",
+   s:["f′(x) = 12x² − 2.","f′(1) = 12 − 2 = 10."]}
+ ]},
+{n:9, part:1, topic:"Задачи с прикладным содержанием",
+ how:["Не пугайся физики: всё, что нужно, — подставить числа в данную формулу.","Выпиши, какие величины известны, а какую надо найти.","Если спрашивают «сколько времени выше/не ниже» — реши неравенство и найди длину промежутка.","Следи за единицами измерения."],
+ tip:"Это задание на аккуратность, а не на знание физики.",
+ tasks:[
+  {q:"Высота мяча над землёй меняется по закону h(t) = 1,6 + 8t − 5t² (h — в метрах, t — в секундах). Сколько секунд мяч будет находиться на высоте не менее 3 метров?", a:"1,2",
+   s:["Решаем 1,6 + 8t − 5t² ≥ 3, то есть 5t² − 8t + 1,4 ≤ 0.","D = 64 − 28 = 36, корни t = (8 ± 6)/10: t₁ = 0,2, t₂ = 1,4.","Мяч выше 3 м при t от 0,2 до 1,4 с.","Время: 1,4 − 0,2 = 1,2 с."]},
+  {q:"Сила тока I (в амперах) находится по закону Ома: I = U/R, где U = 220 В — напряжение, R — сопротивление (в омах). Каким должно быть наименьшее сопротивление, чтобы сила тока не превышала 4 А? Ответ дайте в омах.", a:"55",
+   s:["Условие: 220/R ≤ 4.","R ≥ 220/4 = 55.","Наименьшее сопротивление — 55 Ом."]},
+  {q:"Мощность тока вычисляется по формуле P = I²R. При сопротивлении R = 5 Ом мощность равна 180 Вт. Найдите силу тока I (в амперах).", a:"6",
+   s:["180 = I² · 5.","I² = 36, I = 6 (сила тока положительна)."]}
+ ]},
+{n:10, part:1, topic:"Текстовые задачи",
+ how:["Обозначь неизвестное за x — обычно то, что спрашивают.","Движение: S = v·t. По течению v + vтеч, против течения v − vтеч.","Работа: производительность = 1/время. Вместе производительности складываются.","Смеси: считай количество чистого вещества, а не проценты."],
+ tip:"Составь табличку (скорость / время / расстояние) — так уравнение пишется само.",
+ tasks:[
+  {q:"Моторная лодка прошла против течения 112 км и вернулась обратно, затратив на обратный путь на 6 часов меньше. Скорость течения 3 км/ч. Найдите скорость лодки в неподвижной воде (км/ч).", a:"11",
+   s:["Пусть v — скорость лодки. Против течения: v − 3, по течению: v + 3.","112/(v − 3) − 112/(v + 3) = 6.","Приводим к общему знаменателю: 112·6/(v² − 9) = 6, значит v² − 9 = 112.","v² = 121, v = 11."]},
+  {q:"Смешали 4 литра 15-процентного водного раствора вещества с 6 литрами 25-процентного раствора этого же вещества. Найдите концентрацию получившегося раствора (в процентах).", a:"21",
+   s:["Вещества в первом растворе: 4 · 0,15 = 0,6 л.","Во втором: 6 · 0,25 = 1,5 л.","Всего вещества: 2,1 л, всего раствора: 10 л.","Концентрация: 2,1/10 = 0,21 = 21%."]},
+  {q:"Двое рабочих, работая вместе, выполняют работу за 12 дней. Первый рабочий, работая один, выполнит эту работу за 20 дней. За сколько дней выполнит эту работу второй рабочий, работая один?", a:"30",
+   s:["Вся работа = 1. Общая производительность: 1/12, первого: 1/20.","Производительность второго: 1/12 − 1/20 = 5/60 − 3/60 = 2/60 = 1/30.","Второй выполнит работу за 30 дней."]}
+ ]},
+{n:11, part:1, topic:"Графики функций",
+ how:["Определи вид функции: линейная y = kx + b, парабола y = ax² + bx + c, гипербола y = k/x + a.","Возьми точки с графика (или из условия) и подставь их в формулу.","Получишь систему уравнений на коэффициенты — реши её.","Подставь нужное значение x в найденную формулу."],
+ tip:"На экзамене выбирай на графике точки с целыми координатами — так меньше ошибок.",
+ tasks:[
+  {q:"График функции f(x) = k/x + a проходит через точки A(1; 5) и B(2; 3). Найдите f(4).", a:"2",
+   s:["Подставляем A: k + a = 5.","Подставляем B: k/2 + a = 3.","Вычитаем: k/2 = 2, k = 4, тогда a = 1.","f(4) = 4/4 + 1 = 2."]},
+  {q:"График функции f(x) = ax² + bx + c проходит через точки (0; 3), (1; 4) и (−1; 6). Найдите f(2).", a:"9",
+   s:["Из точки (0; 3): c = 3.","Из (1; 4): a + b + 3 = 4 ⇒ a + b = 1.","Из (−1; 6): a − b + 3 = 6 ⇒ a − b = 3.","Складываем: 2a = 4, a = 2, b = −1.","f(2) = 2·4 − 2 + 3 = 9."]},
+  {q:"Прямая f(x) = kx + b проходит через точки (−1; −1) и (2; 5). Найдите f(10).", a:"21",
+   s:["k = (5 − (−1)) / (2 − (−1)) = 6/3 = 2.","Подставляем (2; 5): 5 = 2·2 + b ⇒ b = 1.","f(10) = 2·10 + 1 = 21."]}
+ ]},
+{n:12, part:1, topic:"Наибольшее и наименьшее значение",
+ how:["Найди производную и приравняй её к нулю — получишь критические точки.","Точка максимума: производная меняет знак с «+» на «−». Минимума — с «−» на «+».","Наибольшее/наименьшее на отрезке: сравни значения в критических точках внутри отрезка и на его концах.","Не путай: «точка максимума» — это x, «наибольшее значение» — это y."],
+ tip:"Самая частая ошибка — записать в ответ x вместо y (или наоборот). Перечитай вопрос.",
+ tasks:[
+  {q:"Найдите точку максимума функции y = x³ − 12x + 5.", a:"-2",
+   s:["y′ = 3x² − 12 = 0 ⇒ x² = 4 ⇒ x = ±2.","Знаки y′: на (−∞; −2) «+», на (−2; 2) «−», на (2; +∞) «+».","В точке x = −2 знак меняется с «+» на «−» — это максимум."]},
+  {q:"Найдите наименьшее значение функции y = x² − 6x + 13 на отрезке [0; 5].", a:"4",
+   s:["y′ = 2x − 6 = 0 ⇒ x = 3 (лежит в отрезке).","y(3) = 9 − 18 + 13 = 4.","y(0) = 13, y(5) = 25 − 30 + 13 = 8.","Наименьшее значение: 4."]},
+  {q:"Найдите наибольшее значение функции y = 3x − x³ на отрезке [0; 2].", a:"2",
+   s:["y′ = 3 − 3x² = 0 ⇒ x = ±1, в отрезок входит x = 1.","y(1) = 3 − 1 = 2.","y(0) = 0, y(2) = 6 − 8 = −2.","Наибольшее значение: 2."]}
+ ]},
+{n:13, part:2, pts:2, topic:"Тригонометрические уравнения",
+ how:["Сведи уравнение к одной функции (sin или cos) с помощью формул: sin²x + cos²x = 1, sin 2x = 2 sin x cos x.","Сделай замену t = cos x (или sin x), реши квадратное уравнение.","Отбрось корни, где |t| > 1.","Пункт б): отбери корни на отрезке с помощью единичной окружности или двойного неравенства."],
+ tip:"Оформление важно: запиши серии корней с «k ∈ Z» и покажи отбор. Без отбора за пункт б) балл не дадут.",
+ tasks:[
+  {q:"а) Решите уравнение 2cos²x − cos x − 1 = 0.\nб) Найдите все корни этого уравнения, принадлежащие отрезку [−2π; −π/2].",
+   ans:"а) 2πk; ±2π/3 + 2πk, k ∈ Z.  б) −2π; −4π/3; −2π/3.",
+   s:["Замена t = cos x: 2t² − t − 1 = 0.","D = 1 + 8 = 9, t = (1 ± 3)/4: t₁ = 1, t₂ = −1/2.","cos x = 1 ⇒ x = 2πk, k ∈ Z.","cos x = −1/2 ⇒ x = ±2π/3 + 2πk, k ∈ Z.","Отбор на [−2π; −π/2]: из первой серии x = −2π.","Из x = 2π/3 + 2πk при k = −1: x = −4π/3 — подходит.","Из x = −2π/3 + 2πk при k = 0: x = −2π/3 — подходит (−2π/3 < −π/2).","Остальные значения k выводят за отрезок."]}
+ ]},
+{n:14, part:2, pts:3, topic:"Стереометрическая задача",
+ how:["Пункт а) — доказательство: опирайся на признаки параллельности и перпендикулярности.","Пункт б) — вычисление: удобнее всего метод координат.","Введи систему координат, найди координаты нужных точек.","Расстояние от точки до плоскости: d = |Ax₀ + By₀ + Cz₀ + D| / √(A² + B² + C²)."],
+ tip:"Метод координат работает почти всегда и не требует «увидеть» красивое построение.",
+ tasks:[
+  {q:"Дан куб ABCDA₁B₁C₁D₁ с ребром 4.\nа) Докажите, что прямая AC₁ перпендикулярна плоскости A₁BD.\nб) Найдите расстояние от точки A до плоскости A₁BD.",
+   ans:"б) 4√3/3",
+   s:["Введём координаты: A(0;0;0), B(4;0;0), D(0;4;0), A₁(0;0;4), C₁(4;4;4).","а) Вектор AC₁ = (4; 4; 4). Векторы BD = (−4; 4; 0), BA₁ = (−4; 0; 4).","AC₁·BD = −16 + 16 + 0 = 0, AC₁·BA₁ = −16 + 0 + 16 = 0.","AC₁ перпендикулярна двум пересекающимся прямым плоскости ⇒ AC₁ ⊥ (A₁BD).","б) Уравнение плоскости через B, D, A₁: x + y + z − 4 = 0.","d = |0 + 0 + 0 − 4| / √(1 + 1 + 1) = 4/√3 = 4√3/3."]}
+ ]},
+{n:15, part:2, pts:2, topic:"Неравенства",
+ how:["Сначала найди ОДЗ: под логарифмом — строго положительное выражение.","Сумму логарифмов с одинаковым основанием сверни в логарифм произведения.","Если основание > 1, знак неравенства сохраняется; если от 0 до 1 — меняется.","Реши получившееся неравенство методом интервалов и пересеки с ОДЗ."],
+ tip:"Половина ошибок в №15 — забытое ОДЗ. Записывай его первой строкой.",
+ tasks:[
+  {q:"Решите неравенство log₂(x − 1) + log₂(x + 1) ≤ 3.",
+   ans:"(1; 3]",
+   s:["ОДЗ: x − 1 > 0 и x + 1 > 0 ⇒ x > 1.","Сворачиваем: log₂((x − 1)(x + 1)) ≤ 3, то есть log₂(x² − 1) ≤ log₂ 8.","Основание 2 > 1, знак сохраняем: x² − 1 ≤ 8 ⇒ x² ≤ 9 ⇒ −3 ≤ x ≤ 3.","Пересекаем с ОДЗ x > 1: получаем 1 < x ≤ 3."]}
+ ]},
+{n:16, part:2, pts:2, topic:"Экономическая задача",
+ how:["Пойми схему кредита: аннуитет (равные платежи) или дифференцированный (долг уменьшается равномерно).","Распиши долг по годам: «начислили проценты → вычли платёж».","Аннуитет: после последнего платежа долг равен 0 — из этого составь уравнение.","Обозначай коэффициент роста буквой (например, k = 1,1) — так вычисления короче."],
+ tip:"Запиши схему по годам в таблице — проверяющему важно видеть ход решения.",
+ tasks:[
+  {q:"В июле планируется взять кредит в банке на сумму 2,1 млн рублей на 2 года. Условия возврата:\n— каждый январь долг возрастает на 10% по сравнению с концом предыдущего года;\n— с февраля по июнь каждого года нужно выплатить часть долга одним платежом.\nКредит погашается двумя равными платежами. Найдите размер ежегодного платежа (в рублях).",
+   ans:"1 210 000 рублей",
+   s:["Пусть S = 2 100 000, k = 1,1, X — платёж.","После первого года: долг S·k − X.","После второго года: (S·k − X)·k − X = 0.","S·k² = X·k + X = X(k + 1).","X = S·k² / (k + 1) = 2 100 000 · 1,21 / 2,1 = 1 210 000."]}
+ ]},
+{n:17, part:2, pts:3, topic:"Планиметрическая задача",
+ how:["Сделай большой аккуратный чертёж — половина решения приходит из рисунка.","Пункт а) — доказательство: подобие, свойства вписанных углов, медиан, биссектрис.","Пункт б) — вычисление, часто использует результат пункта а).","Полезные формулы: S = pr (p — полупериметр), в прямоугольном треугольнике r = (a + b − c)/2."],
+ tip:"Даже если не доказал а), можно использовать его утверждение в б) и получить балл.",
+ tasks:[
+  {q:"В прямоугольном треугольнике ABC с прямым углом C катеты AC = 6, BC = 8. M — середина гипотенузы AB.\nа) Докажите, что CM = AB/2.\nб) Найдите радиус окружности, вписанной в треугольник ABC.",
+   ans:"б) 2",
+   s:["а) Вокруг прямоугольного треугольника можно описать окружность, её центр — середина гипотенузы M.","Значит MA = MB = MC как радиусы, то есть CM = AB/2.","б) AB = √(36 + 64) = 10.","Для прямоугольного треугольника r = (a + b − c)/2 = (6 + 8 − 10)/2 = 2.","Проверка через S = pr: S = 6·8/2 = 24, p = 12, r = 24/12 = 2."]}
+ ]},
+{n:18, part:2, pts:4, topic:"Задача с параметром",
+ how:["Посмотри, нельзя ли найти корни явно (через дискриминант или разложение).","Если корни выражаются через параметр — переведи условие задачи в неравенства на эти корни.","Если нет — используй графический метод: построй графики в координатах (x; a).","Аккуратно проверь граничные значения параметра."],
+ tip:"Даже частичное решение (верно найденные корни) часто приносит 1–2 балла.",
+ tasks:[
+  {q:"Найдите все значения параметра a, при каждом из которых оба корня уравнения x² − 2ax + a² − 1 = 0 принадлежат отрезку [0; 4].",
+   ans:"a ∈ [1; 3]",
+   s:["Заметим: x² − 2ax + a² = (x − a)², уравнение имеет вид (x − a)² = 1.","Корни: x₁ = a − 1, x₂ = a + 1 (всегда два различных корня).","Оба корня в [0; 4] ⇔ a − 1 ≥ 0 и a + 1 ≤ 4.","a ≥ 1 и a ≤ 3, то есть a ∈ [1; 3]."]}
+ ]},
+{n:19, part:2, pts:4, topic:"Числа и их свойства",
+ how:["Задача из трёх пунктов: а) и б) — обычно «да/нет» с примером или доказательством, в) — оценка + пример.","Чтобы ответить «да», достаточно привести один пример.","Чтобы ответить «нет», нужно доказательство (чётность, делимость, остатки).","В пункте в) докажи оценку и приведи пример, на котором она достигается."],
+ tip:"Пункты а) и б) часто решаются перебором за 5 минут — не пропускай задание целиком.",
+ tasks:[
+  {q:"а) Может ли произведение трёх последовательных натуральных чисел оканчиваться на 7?\nб) Верно ли, что произведение трёх последовательных натуральных чисел всегда делится на 6?\nв) Найдите наименьшее натуральное n, при котором n(n + 1)(n + 2) делится на 1000.",
+   ans:"а) нет; б) да; в) 124",
+   s:["а) Среди трёх последовательных чисел есть чётное, значит произведение чётно и не может оканчиваться на 7.","б) Среди трёх последовательных чисел есть чётное и есть кратное 3 ⇒ произведение делится на 2·3 = 6.","в) 1000 = 2³ · 5³. Среди трёх последовательных чисел кратно 5 не больше одного, значит одно из них делится на 125.","Наименьшие варианты: числа вокруг 125. n = 123: 123·124·125 — двойка входит только в 124 = 4·31, это 2², мало.","n = 124: 124·125·126 = (4·31)·125·(2·63) — есть 2³ и 5³, делится на 1000.","Меньших n нет: до 123 ни одно из трёх чисел не делится на 125. Ответ: 124."]}
+ ]}
+];
+
+const TOPICS = [
+  {name:"Алгебра: вычисления и преобразования", nums:[7]},
+  {name:"Уравнения и неравенства", nums:[6,13,15]},
+  {name:"Функции и графики", nums:[11]},
+  {name:"Начала математического анализа", nums:[8,12]},
+  {name:"Геометрия", nums:[1,2,3,14,17]},
+  {name:"Теория вероятностей", nums:[4,5]},
+  {name:"Текстовые и прикладные задачи", nums:[9,10,16]},
+  {name:"Параметры и теория чисел", nums:[18,19]}
+];
+
+const tg = window.Telegram && window.Telegram.WebApp;
+const inTG = !!(tg && tg.platform && tg.platform !== 'unknown');
+if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+if (inTG && tg.colorScheme === 'dark') document.documentElement.classList.add('dark');
+
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+let solved = store.get('ege_solved', {});
+const K = (n,i) => n+'-'+i;
+const byN = n => DATA.find(t => t.n === n);
+const TOTAL = DATA.reduce((s,t) => s + t.tasks.length, 0);
+
+const state = {
+  tab: 'nums',
+  nums: new Set(),
+  topics: new Set(),
+  shuffle: false,
+  skipSolved: false,
+  queue: [], pos: 0, results: []
+};
+
+const app = document.getElementById('app');
+let backHandler = null;
+function setBack(fn){
+  backHandler = fn;
+  if (tg && tg.BackButton) { try { fn ? tg.BackButton.show() : tg.BackButton.hide(); } catch(e){} }
+}
+if (tg && tg.BackButton) { try { tg.BackButton.onClick(() => backHandler && backHandler()); } catch(e){} }
+const haptic = t => { try { tg && tg.HapticFeedback && (t === 'sel' ? tg.HapticFeedback.selectionChanged() : tg.HapticFeedback.notificationOccurred(t)); } catch(e){} };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ICON = {
+  back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>',
+  close:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  chev:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  down:'<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  dumbbell:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11"/><path d="M21 21l-1-1"/><path d="M3 3l1 1"/><path d="M18 22l4-4"/><path d="M2 6l4-4"/><path d="M3 10l7-7"/><path d="M14 21l7-7"/></svg>'
+};
+function header(title, left){
+  return `<div class="hdr">${left ? `<button class="round" id="hback" aria-label="Назад">${left}</button>` : '<div class="spacer"></div>'}<h1>${esc(title)}</h1><div class="spacer"></div></div>`;
+}
+function bindBack(fn){ const b = document.getElementById('hback'); if (b) { b.onclick = fn; if (inTG) b.style.visibility = 'hidden'; } setBack(fn); }
+
+/* ---------- Главная ---------- */
+function renderHome(){
+  const done = Object.keys(solved).length;
+  const pct = Math.round(done / TOTAL * 100);
+  app.innerHTML = `<div class="screen">
+    <div class="hero">
+      <div class="t">Тренажёр ЕГЭ</div>
+      <div class="s">Задания в формате экзамена с подробными решениями</div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="meta"><span>Решено ${done} из ${TOTAL}</span><span>${pct}%</span></div>
+    </div>
+    <div class="panel">
+      <h2>${ICON.dumbbell} Начни тренировку</h2>
+      <button class="subj" id="math">
+        <span class="ic">∑</span>
+        <span class="nm">Профильная математика<span class="sm">19 номеров · ${TOTAL} заданий</span></span>
+        ${ICON.chev}
+      </button>
+    </div>
+  </div>`;
+  setBack(null);
+  document.getElementById('math').onclick = () => { haptic('sel'); renderSubject(); };
+  scrollTo(0,0);
+}
+
+/* ---------- Предмет: номера / темы ---------- */
+function selectedNums(){
+  if (state.tab === 'nums') return [...state.nums].sort((a,b)=>a-b);
+  const s = new Set(); state.topics.forEach(i => TOPICS[i].nums.forEach(n => s.add(n)));
+  return [...s].sort((a,b)=>a-b);
+}
+function buildQueue(){
+  let q = [];
+  selectedNums().forEach(n => byN(n).tasks.forEach((_,i) => { if (!(state.skipSolved && solved[K(n,i)])) q.push({n,i}); }));
+  if (state.shuffle) for (let i = q.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i],q[j]] = [q[j],q[i]]; }
+  return q;
+}
+function plural(n, a, b, c){ const m10 = n%10, m100 = n%100; return (m10===1 && m100!==11) ? a : (m10>=2 && m10<=4 && (m100<10 || m100>=20)) ? b : c; }
+
+function renderSubject(){
+  const chip = n => {
+    const t = byN(n); const all = t.tasks.every((_,i) => solved[K(n,i)]);
+    return `<button class="chip ${state.nums.has(n)?'on':''}" data-n="${n}" aria-pressed="${state.nums.has(n)}">${n}${all?'<span class="d"></span>':''}</button>`;
+  };
+  const p1 = DATA.filter(t=>t.part===1).map(t=>t.n), p2 = DATA.filter(t=>t.part===2).map(t=>t.n);
+  const cb = on => `<span class="cb ${on?'on':''}">${ICON.check}</span>`;
+  const body = state.tab === 'nums' ? `
+      <div class="sec"><b>1 часть</b><button class="link" data-all="1">${p1.every(n=>state.nums.has(n))?'Снять все':'Выбрать все'}</button></div>
+      <div class="chips">${p1.map(chip).join('')}</div>
+      <div class="sec"><b>2 часть</b><button class="link" data-all="2">${p2.every(n=>state.nums.has(n))?'Снять все':'Выбрать все'}</button></div>
+      <div class="chips">${p2.map(chip).join('')}</div>`
+    : `
+      <div class="sec"><b>Темы</b><button class="link" data-alltopics="1">${state.topics.size===TOPICS.length?'Снять все':'Выбрать все'}</button></div>
+      <div class="box">${TOPICS.map((t,i)=>`
+        <button class="opt" data-topic="${i}">${cb(state.topics.has(i))}<span class="lb">${i+1}. ${esc(t.name)}<small>Номера: ${t.nums.join(', ')}</small></span></button>`).join('')}
+      </div>`;
+  const q = buildQueue();
+  app.innerHTML = `<div class="screen">
+    ${header('Профильная математика', ICON.back)}
+    <div class="tabs"><button class="tab ${state.tab==='nums'?'on':''}" data-tab="nums">Номера</button><button class="tab ${state.tab==='topics'?'on':''}" data-tab="topics">Темы</button></div>
+    ${body}
+    <div class="box">
+      <button class="opt" id="optShuffle"><span class="lb">Перемешать задания</span>${cb(state.shuffle)}</button>
+      <button class="opt" id="optSkip"><span class="lb">Не включать задачи, которые уже решались</span>${cb(state.skipSolved)}</button>
+    </div>
+  </div>
+  <div class="bottom"><div class="in">
+    <div class="count">${selectedNums().length ? (q.length ? q.length+' '+plural(q.length,'задание','задания','заданий')+' в тренировке' : 'Все выбранные задания уже решены') : 'Выбери номера или темы'}</div>
+    <button class="main" id="start" ${q.length?'':'disabled'}>Начать тренировку</button>
+  </div></div>`;
+  bindBack(renderHome);
+  app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; haptic('sel'); renderSubject(); });
+  app.querySelectorAll('.chip').forEach(b => b.onclick = () => { const n = +b.dataset.n; state.nums.has(n) ? state.nums.delete(n) : state.nums.add(n); haptic('sel'); renderSubject(); });
+  app.querySelectorAll('[data-all]').forEach(b => b.onclick = () => {
+    const list = b.dataset.all === '1' ? p1 : p2; const all = list.every(n=>state.nums.has(n));
+    list.forEach(n => all ? state.nums.delete(n) : state.nums.add(n)); haptic('sel'); renderSubject();
+  });
+  app.querySelectorAll('[data-topic]').forEach(b => b.onclick = () => { const i = +b.dataset.topic; state.topics.has(i) ? state.topics.delete(i) : state.topics.add(i); haptic('sel'); renderSubject(); });
+  const at = app.querySelector('[data-alltopics]'); if (at) at.onclick = () => { if (state.topics.size === TOPICS.length) state.topics.clear(); else TOPICS.forEach((_,i)=>state.topics.add(i)); haptic('sel'); renderSubject(); };
+  document.getElementById('optShuffle').onclick = () => { state.shuffle = !state.shuffle; haptic('sel'); renderSubject(); };
+  document.getElementById('optSkip').onclick = () => { state.skipSolved = !state.skipSolved; haptic('sel'); renderSubject(); };
+  document.getElementById('start').onclick = () => {
+    state.queue = buildQueue(); state.pos = 0; state.results = [];
+    if (state.queue.length) { haptic('sel'); renderTask(); }
+  };
+}
+
+/* ---------- Тренировка ---------- */
+function norm(s){ return String(s).trim().replace(/\s+/g,'').replace(/,/g,'.').replace(/−/g,'-'); }
+function isRight(user, right){
+  const u = norm(user), r = norm(right);
+  return u === r || (/^-?\d*\.?\d+$/.test(u) && /^-?\d*\.?\d+$/.test(r) && Math.abs(parseFloat(u) - parseFloat(r)) < 1e-9);
+}
+function acc(id, title, inner, open){
+  return `<div class="acc ${open?'open':''}" id="${id}"><button aria-expanded="${!!open}">${title}${ICON.down}</button><div class="body ${open?'':'hidden'}">${inner}</div></div>`;
+}
+function renderTask(){
+  const {n, i} = state.queue[state.pos];
+  const t = byN(n), x = t.tasks[i], short = t.part === 1;
+  const total = state.queue.length, cur = state.pos + 1;
+  const res = state.results[state.pos];
+  const howHtml = `<ul>${t.how.map(h=>`<li>${esc(h)}</li>`).join('')}</ul><div class="tip">💡 ${esc(t.tip)}</div>`;
+  const solHtml = `<ol>${x.s.map(s=>`<li>${esc(s)}</li>`).join('')}</ol><div class="final">Ответ: ${esc(short ? x.a : x.ans)}</div>`;
+  app.innerHTML = `<div class="screen">
+    ${header('Задание '+cur+' из '+total, ICON.close)}
+    <div class="prog"><div class="bar"><i style="width:${(cur-1)/total*100}%"></i></div><span>${cur}/${total}</span></div>
+    <div class="card">
+      <span class="badge">№${n} · ${esc(t.topic)}</span>
+      <div class="q">${esc(x.q)}</div>
+      ${short ? `<div class="ansrow"><input id="inp" inputmode="decimal" autocomplete="off" placeholder="Введите ответ"><button class="btn2" id="check">Проверить</button></div><div id="fb"></div>` : ''}
+    </div>
+    ${acc('how', 'Как решать №'+n, howHtml, false)}
+    ${acc('sol', short ? 'Решение' : 'Решение и ответ', solHtml, false)}
+  </div>
+  <div class="bottom"><div class="in"><div class="count"></div>
+    <button class="main" id="next">${cur < total ? (short ? 'Дальше' : 'Дальше') : 'Завершить'}</button>
+  </div></div>`;
+  bindBack(() => renderSubject());
+  ['how','sol'].forEach(id => {
+    const el = document.getElementById(id);
+    el.querySelector('button').onclick = () => {
+      const open = el.classList.toggle('open');
+      el.querySelector('.body').classList.toggle('hidden', !open);
+      el.querySelector('button').setAttribute('aria-expanded', open);
+      if (id === 'sol' && open && state.results[state.pos] === undefined) state.results[state.pos] = short ? 'skip' : 'seen';
+      if (id === 'sol' && open && !short) { solved[K(n,i)] = 1; store.set('ege_solved', solved); }
+    };
+  });
+  if (short){
+    const inp = document.getElementById('inp'), fb = document.getElementById('fb');
+    const check = () => {
+      if (!inp.value.trim()) { inp.focus(); return; }
+      if (isRight(inp.value, x.a)) {
+        inp.className = 'ok'; fb.className = 'fb ok'; fb.textContent = 'Верно! Отличная работа';
+        if (state.results[state.pos] !== 'bad') state.results[state.pos] = 'ok';
+        solved[K(n,i)] = 1; store.set('ege_solved', solved); haptic('success');
+      } else {
+        inp.className = 'bad'; fb.className = 'fb bad'; fb.textContent = 'Неверно. Попробуй ещё раз или открой решение';
+        state.results[state.pos] = 'bad'; haptic('error');
+      }
+    };
+    document.getElementById('check').onclick = check;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+  }
+  document.getElementById('next').onclick = () => {
+    if (state.results[state.pos] === undefined) state.results[state.pos] = short ? 'skip' : 'seen';
+    if (state.pos < total - 1) { state.pos++; renderTask(); } else renderResults();
+  };
+  scrollTo(0,0);
+}
+
+/* ---------- Итоги ---------- */
+function renderResults(){
+  const items = state.queue.map((q, k) => ({...q, r: state.results[k]}));
+  const shortItems = items.filter(x => byN(x.n).part === 1);
+  const ok = shortItems.filter(x => x.r === 'ok').length;
+  const pct = shortItems.length ? Math.round(ok / shortItems.length * 100) : 100;
+  const label = r => r === 'ok' ? ['ok','✓','Верно'] : r === 'bad' ? ['bad','✕','Ошибка'] : r === 'seen' ? ['sk','✓','Разобрано'] : ['sk','–','Пропущено'];
+  app.innerHTML = `<div class="screen">
+    ${header('Итоги тренировки', ICON.close)}
+    <div class="card res">
+      <div class="big">${shortItems.length ? ok+'/'+shortItems.length : '✓'}</div>
+      <p>${shortItems.length ? 'верных ответов в первой части · '+pct+'%' : 'Все задания разобраны'}</p>
+    </div>
+    <div class="rlist">${items.map(x => { const [c,s,l] = label(x.r); return `<div class="ritem"><span class="st ${c}">${s}</span><span style="flex:1">№${x.n} · вариант ${x.i+1}</span><span style="color:var(--hint);font-size:13px">${l}</span></div>`; }).join('')}</div>
+  </div>
+  <div class="bottom"><div class="in"><div class="count"></div><button class="main" id="again">Ещё тренировка</button></div></div>`;
+  bindBack(renderSubject);
+  document.getElementById('again').onclick = renderSubject;
+  haptic('success');
+  scrollTo(0,0);
+}
+
+renderHome();
+</script>
+</body>
+</html>
