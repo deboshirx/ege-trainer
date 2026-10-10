@@ -596,6 +596,44 @@ function openCuratorsDirect() {
   });
 }
 
+/* ---------- Доступ по заявке ---------- */
+const ACCESS_API = 'https://egebot.p-rotpa.workers.dev/check';
+const ACCESS_KEY = 'ege_access';
+function checkAccess(done) {
+  if (!inTG || !tg.initData) return done(false, 'browser');
+  const uid = tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id;
+  const cached = store.get(ACCESS_KEY, null);
+  fetch(ACCESS_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+    .then(r => r.text())
+    .then(t => {
+      let res;
+      try { res = JSON.parse(t); } catch (e) { return done(true, 'not-configured'); } // проверка на сервере ещё не включена
+      if (res.ok) store.set(ACCESS_KEY, { uid, at: Date.now() }); else store.set(ACCESS_KEY, null);
+      done(!!res.ok, res.status);
+    })
+    .catch(() => done(!!(cached && cached.uid === uid), 'offline'));
+}
+function renderLoading() {
+  app.innerHTML = `<div class="screen center-screen"><div class="spinner" aria-label="Загрузка"></div></div>`;
+}
+function renderLocked(status) {
+  const T = {
+    pending: ['Заявка на рассмотрении ⏳', 'Мы получили твою заявку. Как только доступ откроют, бот пришлёт сообщение — после этого заходи в тренажёр.'],
+    rejected: ['Доступ не открыт', 'К сожалению, доступ к тренажёру пока не одобрен. Если это ошибка — напиши нам.'],
+    browser: ['Открой тренажёр в Telegram', 'Тренажёр работает только внутри Telegram-бота. Открой бота и нажми /start, чтобы отправить заявку.'],
+    offline: ['Нет соединения', 'Не удалось проверить доступ. Проверь интернет и открой тренажёр ещё раз.']
+  };
+  const [title, text] = T[status] || ['Доступ по заявке', 'Чтобы пользоваться тренажёром, отправь заявку: вернись в бота и нажми /start. Мы откроем доступ после проверки.'];
+  app.innerHTML = `<div class="screen center-screen">
+    <div class="lock-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+    <div class="page-t" style="text-align:center">${esc(title)}</div>
+    <div class="page-s" style="text-align:center">${esc(text)}</div>
+    ${inTG ? '<button class="main" id="toBot" style="max-width:320px">Вернуться в бота</button>' : ''}
+  </div>`;
+  setBack(null);
+  const b = document.getElementById('toBot'); if (b) b.onclick = () => { try { tg.close(); } catch (e) {} };
+}
+
 /* ---------- Итоги ---------- */
 function renderResults() {
   const items = state.queue.map((q, k) => ({ ...q, r: state.results[k] }));
@@ -618,4 +656,8 @@ function renderResults() {
   scrollTo(0, 0);
 }
 
-loadFromCloud(() => { if (mySubjects && mySubjects.length) renderHome(); else renderPicker(false); });
+renderLoading();
+checkAccess((ok, status) => {
+  if (!ok) return renderLocked(status);
+  loadFromCloud(() => { if (mySubjects && mySubjects.length) renderHome(); else renderPicker(false); });
+});
