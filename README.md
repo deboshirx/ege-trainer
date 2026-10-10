@@ -4,5 +4,6 @@ Telegram Mini App для подготовки к ЕГЭ: профильная и
 
 - `index.html`, `app.js` — приложение
 - `subjects/*.js` — задания по предметам (один файл на предмет)
+- `curators.js` — список кураторов (имя, ник в Telegram, предметы)
 - `bot/worker.js` — бот для Cloudflare Workers (ответ на /start кнопкой мини-аппа)
 - `tools/validate.js` — проверка данных: `node tools/validate.js`

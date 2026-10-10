@@ -54,6 +54,7 @@ const ICON = {
   chev: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
   down: '<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  chat: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
   dumbbell: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11"/><path d="M21 21l-1-1"/><path d="M3 3l1 1"/><path d="M18 22l4-4"/><path d="M2 6l4-4"/><path d="M3 10l7-7"/><path d="M14 21l7-7"/></svg>'
 };
 function header(title, left) {
@@ -62,10 +63,70 @@ function header(title, left) {
 function bindBack(fn) { const b = document.getElementById('hback'); if (b) { b.onclick = fn; if (inTG) b.style.visibility = 'hidden'; } setBack(fn); }
 function plural(n, a, b, c) { const m10 = n % 10, m100 = n % 100; return (m10 === 1 && m100 !== 11) ? a : (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) ? b : c; }
 
+/* ---------- Выбранные предметы (локально + облако Telegram) ---------- */
+const MY_KEY = 'ege_my_subjects';
+let mySubjects = store.get(MY_KEY, null);
+const cloud = (inTG && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9')) ? tg.CloudStorage : null;
+function saveMySubjects(ids) {
+  mySubjects = ids;
+  store.set(MY_KEY, ids);
+  if (cloud) { try { cloud.setItem(MY_KEY, JSON.stringify(ids)); } catch (e) {} }
+}
+function loadFromCloud(done) {
+  if (!cloud) return done();
+  let finished = false;
+  const finish = () => { if (!finished) { finished = true; done(); } };
+  setTimeout(finish, 1500);
+  try {
+    cloud.getItem(MY_KEY, (err, val) => {
+      if (!err && val) { try { const ids = JSON.parse(val); if (Array.isArray(ids) && ids.length) { mySubjects = ids; store.set(MY_KEY, ids); } } catch (e) {} }
+      finish();
+    });
+  } catch (e) { finish(); }
+}
+const visibleSubjects = () => {
+  const list = SUBJ.filter(s => mySubjects && mySubjects.includes(s.id));
+  return list.length ? list : SUBJ;
+};
+
+/* ---------- Выбор предметов ---------- */
+function renderPicker(isEdit) {
+  const chosen = new Set(mySubjects || []);
+  const cb = on => `<span class="cb ${on ? 'on' : ''}">${ICON.check}</span>`;
+  const draw = () => {
+    app.innerHTML = `<div class="screen">
+      ${isEdit ? header('Мои предметы', ICON.back) : ''}
+      <div class="pick-head">
+        <div class="t">Какие предметы ты сдаёшь?</div>
+        <div class="s">Выбери все, к которым готовишься. Изменить список можно в любой момент.</div>
+      </div>
+      <div class="box" style="margin-top:0">
+        ${SUBJ.map(s => `<button class="opt" data-id="${s.id}"><span class="ic-sm">${esc(s.short)}</span><span class="lb">${esc(s.name)}</span>${cb(chosen.has(s.id))}</button>`).join('')}
+      </div>
+    </div>
+    <div class="bottom"><div class="in">
+      <div class="count">${chosen.size ? 'Выбрано: ' + chosen.size : 'Выбери хотя бы один предмет'}</div>
+      <button class="main" id="go" ${chosen.size ? '' : 'disabled'}>${isEdit ? 'Сохранить' : 'Продолжить'}</button>
+    </div></div>`;
+    if (isEdit) bindBack(renderHome); else setBack(null);
+    app.querySelectorAll('.opt[data-id]').forEach(b => b.onclick = () => {
+      const id = b.dataset.id; chosen.has(id) ? chosen.delete(id) : chosen.add(id); haptic('sel'); draw();
+    });
+    document.getElementById('go').onclick = () => {
+      if (!chosen.size) return;
+      saveMySubjects(SUBJ.filter(s => chosen.has(s.id)).map(s => s.id));
+      haptic('success'); renderHome();
+    };
+  };
+  draw();
+  scrollTo(0, 0);
+}
+
 /* ---------- Главная ---------- */
 function renderHome() {
-  const total = SUBJ.reduce((a, s) => a + countTasks(s), 0);
-  const done = SUBJ.reduce((a, s) => a + countSolved(s), 0);
+  const list = visibleSubjects();
+  const total = list.reduce((a, s) => a + countTasks(s), 0);
+  const done = list.reduce((a, s) => a + countSolved(s), 0);
   const pct = total ? Math.round(done / total * 100) : 0;
   app.innerHTML = `<div class="screen">
     <div class="hero">
@@ -75,8 +136,8 @@ function renderHome() {
       <div class="meta"><span>Решено ${done} из ${total}</span><span>${pct}%</span></div>
     </div>
     <div class="panel">
-      <h2>${ICON.dumbbell} Начни тренировку</h2>
-      ${SUBJ.map(s => {
+      <div class="panel-top"><h2>${ICON.dumbbell} Начни тренировку</h2><button class="link" id="edit">Изменить</button></div>
+      ${list.map(s => {
         const t = countTasks(s), d = countSolved(s);
         return `<button class="subj" data-id="${s.id}">
           <span class="ic">${esc(s.short)}</span>
@@ -88,6 +149,7 @@ function renderHome() {
   </div>`;
   setBack(null);
   app.querySelectorAll('.subj').forEach(b => b.onclick = () => { haptic('sel'); openSubject(b.dataset.id); });
+  document.getElementById('edit').onclick = () => { haptic('sel'); renderPicker(true); };
   scrollTo(0, 0);
 }
 
@@ -188,13 +250,14 @@ function renderTask() {
   const howHtml = `<ul>${t.how.map(h => `<li>${esc(h)}</li>`).join('')}</ul>${t.tip ? `<div class="tip">💡 ${esc(t.tip)}</div>` : ''}`;
   const solHtml = `<ol>${x.s.map(s => `<li>${esc(s)}</li>`).join('')}</ol><div class="final${short ? '' : ' long'}">${short ? 'Ответ: ' + esc(firstAnswer(x)) : esc(x.ans)}</div>`;
   const fmt = x.fmt || t.fmt;
+  let lastAnswer = '';
   app.innerHTML = `<div class="screen">
     ${header(subject.name + ' · ' + cur + '/' + total, ICON.close)}
     <div class="prog"><div class="bar"><i style="width:${(cur - 1) / total * 100}%"></i></div><span>${cur}/${total}</span></div>
     <div class="card">
       <span class="badge">№${n} · ${esc(t.topic)}</span>
       <div class="q">${esc(x.q)}</div>
-      ${short ? `${fmt ? `<div class="fmt">${esc(fmt)}</div>` : ''}<div class="ansrow"><input id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите ответ"><button class="btn2" id="check">Проверить</button></div><div id="fb"></div>` : `<div class="fmt">Задание с развёрнутым ответом: напиши ответ на листе или в заметках, потом сверься с образцом.</div>`}
+      ${short ? `${fmt ? `<div class="fmt">${esc(fmt)}</div>` : ''}<div class="ansrow"><input id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите ответ"><button class="btn2" id="check">Проверить</button></div><div id="fb"></div><button class="cur-btn hidden" id="curBtn">${ICON.chat} Разобрать с куратором</button>` : `<div class="fmt">Задание с развёрнутым ответом: напиши ответ на листе или в заметках, потом сверься с образцом.</div><button class="cur-btn" id="curBtn">${ICON.chat} Отправить ответ куратору на проверку</button>`}
     </div>
     ${acc('how', (short ? 'Как решать №' : 'Как выполнять №') + n, howHtml, false)}
     ${acc('sol', short ? 'Решение' : 'Образец ответа и критерии', solHtml, false)}
@@ -225,16 +288,90 @@ function renderTask() {
       } else {
         inp.className = 'bad'; fb.className = 'fb bad'; fb.textContent = 'Неверно. Попробуй ещё раз или открой решение';
         state.results[state.pos] = 'bad'; haptic('error');
+        lastAnswer = inp.value.trim();
+        document.getElementById('curBtn').classList.remove('hidden');
       }
     };
     document.getElementById('check').onclick = check;
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
   }
+  document.getElementById('curBtn').onclick = () => { haptic('sel'); openCurators({ n, i, t, x, short, answer: lastAnswer }); };
   document.getElementById('next').onclick = () => {
     if (state.results[state.pos] === undefined) state.results[state.pos] = short ? 'skip' : 'seen';
     if (state.pos < total - 1) { state.pos++; renderTask(); } else renderResults();
   };
   scrollTo(0, 0);
+}
+
+/* ---------- Кураторы ---------- */
+const CUR_KEY = 'ege_curator';
+function curatorsFor(sid) {
+  const all = window.CURATORS || [];
+  return all.filter(c => c.subjects.includes('all') || c.subjects.includes(sid));
+}
+function buildMessage(ctx) {
+  const max = 700;
+  const q = ctx.x.q.length > max ? ctx.x.q.slice(0, max) + '…' : ctx.x.q;
+  const lines = [
+    'Здравствуйте! Помогите, пожалуйста, разобраться с заданием из тренажёра ЕГЭ.',
+    'Предмет: ' + subject.name + ', задание №' + ctx.n + ' (вариант ' + (ctx.i + 1) + ')',
+    '',
+    q,
+    ''
+  ];
+  if (ctx.short) lines.push('Мой ответ: ' + (ctx.answer || '—'));
+  else lines.push('Мой ответ: (вставлю ниже)');
+  return lines.join('\n');
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  try {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+  } catch (e) { return false; }
+}
+function openTelegram(username) {
+  const url = 'https://t.me/' + username;
+  if (inTG && tg.openTelegramLink) { try { tg.openTelegramLink(url); return; } catch (e) {} }
+  window.open(url, '_blank');
+}
+function toast(text) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = text;
+  document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10);
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
+}
+function openCurators(ctx) {
+  const list = curatorsFor(subject.id);
+  const saved = store.get(CUR_KEY, {});
+  const prev = saved[subject.id];
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet" role="dialog" aria-label="Выбор куратора">
+    <div class="sheet-grip"></div>
+    <div class="sheet-t">Выбери куратора</div>
+    <div class="sheet-s">Куратор разберёт ошибку, объяснит решение и задаст вопросы, чтобы закрепить тему. Текст задания скопируется автоматически — просто вставь его в чат.</div>
+    ${list.length ? list.map((c, k) => `
+      <button class="cur ${c.username === prev ? 'on' : ''}" data-k="${k}">
+        <span class="ava">${esc(c.name.trim().charAt(0).toUpperCase())}</span>
+        <span class="info"><b>${esc(c.name)}</b>${c.about ? `<small>${esc(c.about)}</small>` : ''}</span>
+        ${c.username === prev ? '<span class="tag">Твой куратор</span>' : ICON.chev}
+      </button>`).join('') : '<div class="sheet-s">По этому предмету пока нет кураторов.</div>'}
+    <button class="sheet-close" id="sheetClose">Отмена</button>
+  </div>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('show'));
+  const close = () => { sheet.classList.remove('show'); setTimeout(() => sheet.remove(), 250); };
+  sheet.addEventListener('click', e => { if (e.target === sheet) close(); });
+  sheet.querySelector('#sheetClose').onclick = close;
+  sheet.querySelectorAll('.cur').forEach(b => b.onclick = async () => {
+    const c = list[+b.dataset.k];
+    saved[subject.id] = c.username; store.set(CUR_KEY, saved);
+    const ok = await copyText(buildMessage(ctx));
+    haptic('success');
+    close();
+    toast(ok ? 'Текст задания скопирован — вставь его в чат с куратором' : 'Открываю чат с куратором');
+    setTimeout(() => openTelegram(c.username), 400);
+  });
 }
 
 /* ---------- Итоги ---------- */
@@ -259,4 +396,4 @@ function renderResults() {
   scrollTo(0, 0);
 }
 
-renderHome();
+loadFromCloud(() => { if (mySubjects && mySubjects.length) renderHome(); else renderPicker(false); });
