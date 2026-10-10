@@ -7,6 +7,8 @@ const path = require('path');
 global.window = { SUBJECTS: [] };
 const dir = path.join(__dirname, '..', 'subjects');
 fs.readdirSync(dir).filter(f => f.endsWith('.js')).forEach(f => require(path.join(dir, f)));
+require(path.join(__dirname, '..', 'pictures.js'));
+require(path.join(__dirname, '..', 'figures.js'));
 
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 const normSrc = appSrc.match(/function norm\(s\) \{[\s\S]*?\n\}/)[0];
@@ -34,6 +36,8 @@ for (const s of window.SUBJECTS) {
       total++;
       const id = `№${t.n} вариант ${i + 1}`;
       if (!x.q || !x.s || !x.s.length) err(`${id}: нет условия или решения`);
+      if (x.fig) { try { const svg = window.FIG.render(x.fig); if (!/<svg/.test(svg) || /NaN|undefined/.test(svg)) err(`${id}: рисунок не построился`); } catch (e) { err(`${id}: ошибка рисунка ${e.message}`); } }
+      if ((x.q.match(/\$/g) || []).length % 2) err(`${id}: непарный $ в формуле`);
       if (t.kind === 'long') { if (!x.ans) err(`${id}: нет образца ответа`); return; }
       if (x.a === undefined || x.a === '') { err(`${id}: нет ответа`); return; }
       (Array.isArray(x.a) ? x.a : [x.a]).forEach(v => { if (!isRight(v, x, t)) err(`${id}: ответ «${v}» не принимается`); });
