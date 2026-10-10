@@ -135,20 +135,28 @@ function renderHome() {
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="meta"><span>Решено ${done} из ${total}</span><span>${pct}%</span></div>
     </div>
-    <div class="panel">
-      <div class="panel-top"><h2>${ICON.dumbbell} Начни тренировку</h2><button class="link" id="edit">Изменить</button></div>
+    <div class="panel-top home-top"><h2>Мои предметы</h2><button class="link" id="edit">Изменить</button></div>
+    <div class="tiles">
       ${list.map(s => {
-        const t = countTasks(s), d = countSolved(s);
-        return `<button class="subj" data-id="${s.id}">
+        const t = countTasks(s), d = countSolved(s), p = t ? Math.round(d / t * 100) : 0;
+        return `<button class="tile" data-id="${s.id}">
           <span class="ic">${esc(s.short)}</span>
-          <span class="nm">${esc(s.name)}<span class="sm">${s.data.length} ${plural(s.data.length, 'номер', 'номера', 'номеров')} · ${t} ${plural(t, 'задание', 'задания', 'заданий')}</span></span>
-          ${d ? `<span class="pc">${Math.round(d / t * 100)}%</span>` : ''}${ICON.chev}
+          <span class="tn">${esc(s.name)}</span>
+          <span class="tm">${s.data.length} ${plural(s.data.length, 'номер', 'номера', 'номеров')}</span>
+          <span class="tb"><i style="width:${p}%"></i></span>
+          <span class="tp">${p ? p + '% решено' : 'Начать'}</span>
         </button>`;
       }).join('')}
     </div>
+    <button class="cur-card" id="homeCur">
+      <span class="ava">${ICON.chat}</span>
+      <span class="info"><b>Не понял тему?</b><small>Разбери её с куратором — он объяснит и ответит на вопросы</small></span>
+      ${ICON.chev}
+    </button>
   </div>`;
   setBack(null);
-  app.querySelectorAll('.subj').forEach(b => b.onclick = () => { haptic('sel'); openSubject(b.dataset.id); });
+  app.querySelectorAll('.tile').forEach(b => b.onclick = () => { haptic('sel'); openSubject(b.dataset.id); });
+  document.getElementById('homeCur').onclick = () => { haptic('sel'); openCuratorsDirect(); };
   document.getElementById('edit').onclick = () => { haptic('sel'); renderPicker(true); };
   scrollTo(0, 0);
 }
@@ -372,6 +380,37 @@ function openCurators(ctx) {
     close();
     toast(ok ? 'Текст задания скопирован — вставь его в чат с куратором' : 'Открываю чат с куратором');
     setTimeout(() => openTelegram(c.username), 400);
+  });
+}
+
+/* Кураторы с главной: просто открыть чат, без текста задания */
+function openCuratorsDirect() {
+  const ids = visibleSubjects().map(s => s.id);
+  const names = id => (SUBJ.find(s => s.id === id) || {}).name || id;
+  const list = (window.CURATORS || []).filter(c => c.subjects.includes('all') || c.subjects.some(id => ids.includes(id)));
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-wrap';
+  sheet.innerHTML = `<div class="sheet" role="dialog" aria-label="Кураторы">
+    <div class="sheet-grip"></div>
+    <div class="sheet-t">Разобрать тему с куратором</div>
+    <div class="sheet-s">Выбери куратора по предмету — откроется чат с ним в Telegram. Напиши, какую тему хочешь разобрать.</div>
+    ${list.length ? list.map((c, k) => `
+      <button class="cur" data-k="${k}">
+        <span class="ava">${esc(c.name.trim().charAt(0).toUpperCase())}</span>
+        <span class="info"><b>${esc(c.name)}</b><small>${c.subjects.includes('all') ? 'Все предметы' : esc(c.subjects.map(names).join(', '))}</small></span>
+        ${ICON.chev}
+      </button>`).join('') : '<div class="sheet-s">По твоим предметам пока нет кураторов.</div>'}
+    <button class="sheet-close" id="sheetClose">Отмена</button>
+  </div>`;
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('show'));
+  const close = () => { sheet.classList.remove('show'); setTimeout(() => sheet.remove(), 250); };
+  sheet.addEventListener('click', e => { if (e.target === sheet) close(); });
+  sheet.querySelector('#sheetClose').onclick = close;
+  sheet.querySelectorAll('.cur').forEach(b => b.onclick = () => {
+    const c = list[+b.dataset.k];
+    haptic('success'); close();
+    setTimeout(() => openTelegram(c.username), 250);
   });
 }
 
