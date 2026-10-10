@@ -15,7 +15,6 @@ const SUBJ = window.SUBJECTS.slice().sort((a, b) => a.order - b.order);
 const tg = window.Telegram && window.Telegram.WebApp;
 const inTG = !!(tg && tg.platform && tg.platform !== 'unknown');
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
-if (inTG && tg.colorScheme === 'dark') document.documentElement.classList.add('dark');
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -30,8 +29,44 @@ const store = {
   }
 })();
 let solved = store.get('ege_solved_v2', {});
+
+/* ---------- Тема оформления: auto | light | dark ---------- */
+const THEME_KEY = 'ege_theme';
+const mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function applyTheme() {
+  const mode = store.get(THEME_KEY, 'auto');
+  const autoDark = inTG ? tg.colorScheme === 'dark' : !!(mql && mql.matches);
+  const dark = mode === 'dark' || (mode === 'auto' && autoDark);
+  document.documentElement.classList.toggle('dark', dark);
+  if (inTG) {
+    const bg = dark ? '#0F1115' : '#EEF2F8';
+    try { tg.setHeaderColor(bg); tg.setBackgroundColor(bg); } catch (e) {}
+  }
+}
+applyTheme();
+if (inTG) { try { tg.onEvent('themeChanged', applyTheme); } catch (e) {} }
+if (mql && mql.addEventListener) mql.addEventListener('change', applyTheme);
+
+/* ---------- Статистика: попытки, ошибки, дни занятий ---------- */
+const STATS_KEY = 'ege_stats';
+let stats = store.get(STATS_KEY, { attempts: {}, mistakes: {}, days: [] });
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function markDay() { const t = today(); if (!stats.days.includes(t)) { stats.days.push(t); if (stats.days.length > 400) stats.days.shift(); } }
+function recordAttempt(sid, n, ok) {
+  const a = stats.attempts[sid] || (stats.attempts[sid] = { ok: 0, bad: 0 });
+  ok ? a.ok++ : a.bad++;
+  if (!ok) { const m = stats.mistakes[sid] || (stats.mistakes[sid] = {}); m[n] = (m[n] || 0) + 1; }
+  markDay(); store.set(STATS_KEY, stats);
+}
+function streak() {
+  const set = new Set(stats.days); let d = new Date(), c = 0;
+  const key = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  if (!set.has(key(d))) d.setDate(d.getDate() - 1);
+  while (set.has(key(d))) { c++; d.setDate(d.getDate() - 1); }
+  return c;
+}
 const K = (sid, n, i) => sid + ':' + n + '-' + i;
-const markSolved = (sid, n, i) => { solved[K(sid, n, i)] = 1; store.set('ege_solved_v2', solved); };
+const markSolved = (sid, n, i) => { solved[K(sid, n, i)] = 1; store.set('ege_solved_v2', solved); markDay(); store.set(STATS_KEY, stats); };
 const countTasks = s => s.data.reduce((a, t) => a + t.tasks.length, 0);
 const countSolved = s => s.data.reduce((a, t) => a + t.tasks.filter((_, i) => solved[K(s.id, t.n, i)]).length, 0);
 
@@ -123,12 +158,13 @@ function renderPicker(isEdit) {
 }
 
 /* ---------- Главная ---------- */
-function renderHome() {
+function renderMainTab() {
+  currentTab = 'home';
   const list = visibleSubjects();
   const total = list.reduce((a, s) => a + countTasks(s), 0);
   const done = list.reduce((a, s) => a + countSolved(s), 0);
   const pct = total ? Math.round(done / total * 100) : 0;
-  app.innerHTML = `<div class="screen">
+  app.innerHTML = `<div class="screen with-tabs">
     <div class="hero">
       <div class="t">Тренажёр ЕГЭ</div>
       <div class="s">Задания в формате экзамена с подробными решениями</div>
@@ -154,10 +190,156 @@ function renderHome() {
       ${ICON.chev}
     </button>
   </div>`;
+  app.insertAdjacentHTML('beforeend', tabbar('home')); bindTabbar();
   setBack(null);
   app.querySelectorAll('.tile').forEach(b => b.onclick = () => { haptic('sel'); openSubject(b.dataset.id); });
   document.getElementById('homeCur').onclick = () => { haptic('sel'); openCuratorsDirect(); };
   document.getElementById('edit').onclick = () => { haptic('sel'); renderPicker(true); };
+  scrollTo(0, 0);
+}
+
+/* ---------- Нижние вкладки ---------- */
+let currentTab = 'home';
+const TABS = [
+  { id: 'home', name: 'Главная', icon: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>' },
+  { id: 'solve', name: 'Решать', icon: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>' },
+  { id: 'progress', name: 'Прогресс', icon: '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>' },
+  { id: 'settings', name: 'Настройки', icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>' }
+];
+function tabbar(active) {
+  return `<nav class="tabbar" aria-label="Разделы"><div class="in">${TABS.map(t => `
+    <button class="tb-btn ${t.id === active ? 'on' : ''}" data-tab-id="${t.id}" aria-current="${t.id === active ? 'page' : 'false'}">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${t.icon}</svg>
+      <span>${t.name}</span>
+    </button>`).join('')}</div></nav>`;
+}
+function bindTabbar() {
+  app.querySelectorAll('.tb-btn').forEach(b => b.onclick = () => {
+    if (currentTab === b.dataset.tabId) return;
+    currentTab = b.dataset.tabId; haptic('sel'); renderHome();
+  });
+}
+function renderHome() {
+  if (currentTab === 'solve') return renderSolveTab();
+  if (currentTab === 'progress') return renderProgressTab();
+  if (currentTab === 'settings') return renderSettingsTab();
+  return renderMainTab();
+}
+
+/* ---------- Вкладка «Решать» ---------- */
+function renderSolveTab() {
+  const list = visibleSubjects();
+  app.innerHTML = `<div class="screen with-tabs">
+    <div class="page-t">Что решаем сегодня?</div>
+    <div class="page-s">Выбери предмет — дальше выберешь номера или темы.</div>
+    <div class="box" style="margin-top:0">
+      ${list.map(s => {
+        const t = countTasks(s), d = countSolved(s), p = t ? Math.round(d / t * 100) : 0;
+        return `<button class="opt solve-row" data-id="${s.id}">
+          <span class="ic-sm">${esc(s.short)}</span>
+          <span class="lb">${esc(s.name)}<small>${d} из ${t} ${plural(t, 'задания', 'заданий', 'заданий')} решено · ${p}%</small></span>
+          ${ICON.chev}
+        </button>`;
+      }).join('')}
+    </div>
+  </div>` + tabbar('solve');
+  bindTabbar(); setBack(null);
+  app.querySelectorAll('.solve-row').forEach(b => b.onclick = () => { haptic('sel'); openSubject(b.dataset.id); });
+  scrollTo(0, 0);
+}
+
+/* ---------- Вкладка «Прогресс» ---------- */
+function renderProgressTab() {
+  const list = visibleSubjects();
+  const total = list.reduce((a, s) => a + countTasks(s), 0);
+  const done = list.reduce((a, s) => a + countSolved(s), 0);
+  let ok = 0, bad = 0;
+  list.forEach(s => { const a = stats.attempts[s.id]; if (a) { ok += a.ok; bad += a.bad; } });
+  const acc = ok + bad ? Math.round(ok / (ok + bad) * 100) : 0;
+  const weak = [];
+  list.forEach(s => {
+    const m = stats.mistakes[s.id] || {};
+    Object.keys(m).forEach(n => {
+      const t = s.data.find(x => x.n === +n);
+      if (t && !t.tasks.every((_, i) => solved[K(s.id, t.n, i)])) weak.push({ s, t, c: m[n] });
+    });
+  });
+  weak.sort((a, b) => b.c - a.c);
+  const st = streak();
+  app.innerHTML = `<div class="screen with-tabs">
+    <div class="page-t">Мой прогресс</div>
+    <div class="stats">
+      <div class="stat"><b>${done}</b><span>решено заданий</span></div>
+      <div class="stat"><b>${acc}%</b><span>верных ответов</span></div>
+      <div class="stat"><b>${st}</b><span>${plural(st, 'день', 'дня', 'дней')} подряд</span></div>
+    </div>
+    <div class="sec"><b>По предметам</b></div>
+    <div class="box prog-box">
+      ${list.map(s => {
+        const t = countTasks(s), d = countSolved(s), p = t ? Math.round(d / t * 100) : 0;
+        const full = s.data.filter(x => x.tasks.every((_, i) => solved[K(s.id, x.n, i)])).length;
+        return `<div class="prow">
+          <div class="pr-top"><span>${esc(s.name)}</span><b>${p}%</b></div>
+          <div class="pbar"><i style="width:${p}%"></i></div>
+          <div class="pr-sub">${d} из ${t} заданий · ${full} из ${s.data.length} номеров закрыто</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="sec"><b>Над чем поработать</b></div>
+    ${weak.length ? `<div class="box">${weak.slice(0, 8).map(w => `
+      <button class="opt weak-row" data-id="${w.s.id}" data-n="${w.t.n}">
+        <span class="ic-sm">№${w.t.n}</span>
+        <span class="lb">${esc(w.t.topic)}<small>${esc(w.s.name)} · ${w.c} ${plural(w.c, 'ошибка', 'ошибки', 'ошибок')}</small></span>
+        ${ICON.chev}
+      </button>`).join('')}</div>`
+      : `<div class="card empty-card">Здесь появятся номера, в которых были ошибки. Пока всё отлично — продолжай решать!</div>`}
+  </div>` + tabbar('progress');
+  bindTabbar(); setBack(null);
+  app.querySelectorAll('.weak-row').forEach(b => b.onclick = () => {
+    haptic('sel');
+    openSubject(b.dataset.id);
+    state.tab = 'nums'; state.nums = new Set([+b.dataset.n]); renderSubject();
+  });
+  scrollTo(0, 0);
+}
+
+/* ---------- Вкладка «Настройки» ---------- */
+function renderSettingsTab() {
+  const mode = store.get(THEME_KEY, 'auto');
+  const radio = on => `<span class="radio ${on ? 'on' : ''}"></span>`;
+  app.innerHTML = `<div class="screen with-tabs">
+    <div class="page-t">Настройки</div>
+    <div class="sec"><b>Оформление</b></div>
+    <div class="box">
+      <button class="opt theme-opt" data-mode="auto"><span class="lb">Как в Telegram<small>Тема меняется вместе с приложением</small></span>${radio(mode === 'auto')}</button>
+      <button class="opt theme-opt" data-mode="light"><span class="lb">Светлая тема</span>${radio(mode === 'light')}</button>
+      <button class="opt theme-opt" data-mode="dark"><span class="lb">Тёмная тема</span>${radio(mode === 'dark')}</button>
+    </div>
+    <div class="sec"><b>Учёба</b></div>
+    <div class="box">
+      <button class="opt" id="setSubjects"><span class="lb">Мои предметы<small>${visibleSubjects().map(s => s.name).join(', ')}</small></span>${ICON.chev}</button>
+      <button class="opt" id="setCurator"><span class="lb">Написать куратору<small>Разобрать тему, которая непонятна</small></span>${ICON.chev}</button>
+    </div>
+    <div class="sec"><b>Данные</b></div>
+    <div class="box">
+      <button class="opt" id="resetProgress"><span class="lb danger">Сбросить прогресс<small>Решённые задания и статистика будут удалены</small></span></button>
+    </div>
+  </div>` + tabbar('settings');
+  bindTabbar(); setBack(null);
+  app.querySelectorAll('.theme-opt').forEach(b => b.onclick = () => { store.set(THEME_KEY, b.dataset.mode); applyTheme(); haptic('sel'); renderSettingsTab(); });
+  document.getElementById('setSubjects').onclick = () => { haptic('sel'); renderPicker(true); };
+  document.getElementById('setCurator').onclick = () => { haptic('sel'); openCuratorsDirect(); };
+  document.getElementById('resetProgress').onclick = () => {
+    const doReset = () => {
+      solved = {}; stats = { attempts: {}, mistakes: {}, days: [] };
+      store.set('ege_solved_v2', solved); store.set(STATS_KEY, stats);
+      haptic('success'); toast('Прогресс сброшен'); renderSettingsTab();
+    };
+    if (inTG && tg.showConfirm && tg.isVersionAtLeast && tg.isVersionAtLeast('6.2')) {
+      try { tg.showConfirm('Сбросить весь прогресс? Это действие нельзя отменить.', ok => { if (ok) doReset(); }); return; } catch (e) {}
+    }
+    if (window.confirm('Сбросить весь прогресс? Это действие нельзя отменить.')) doReset();
+  };
   scrollTo(0, 0);
 }
 
@@ -292,10 +474,10 @@ function renderTask() {
       if (isRight(inp.value, x, t)) {
         inp.className = 'ok'; fb.className = 'fb ok'; fb.textContent = 'Верно! Отличная работа';
         if (state.results[state.pos] !== 'bad') state.results[state.pos] = 'ok';
-        markSolved(subject.id, n, i); haptic('success');
+        recordAttempt(subject.id, n, true); markSolved(subject.id, n, i); haptic('success');
       } else {
         inp.className = 'bad'; fb.className = 'fb bad'; fb.textContent = 'Неверно. Попробуй ещё раз или открой решение';
-        state.results[state.pos] = 'bad'; haptic('error');
+        state.results[state.pos] = 'bad'; haptic('error'); recordAttempt(subject.id, n, false);
         lastAnswer = inp.value.trim();
         const cb = document.getElementById('curBtn'); if (cb) cb.classList.remove('hidden');
       }
