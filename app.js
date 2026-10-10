@@ -783,7 +783,7 @@ function openCuratorsDirect() {
     ${list.length ? list.map((c, k) => `
       <button class="cur" data-k="${k}">
         <span class="ava">${esc(c.name.trim().charAt(0).toUpperCase())}</span>
-        <span class="info"><b>${esc(c.name)}</b><small>${c.subjects.includes('all') ? 'Все предметы' : esc(c.subjects.map(names).join(', '))}</small></span>
+        <span class="info"><b>${esc(c.name)}</b>${c.about ? `<small>${esc(c.about)}</small>` : ''}<small class="subj-l">${c.subjects.includes('all') ? 'Все предметы' : esc(c.subjects.map(names).join(', '))}</small></span>
         ${ICON.chev}
       </button>`).join('') : '<div class="sheet-s">По твоим предметам пока нет кураторов.</div>'}
     <button class="sheet-close" id="sheetClose">Отмена</button>
