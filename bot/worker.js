@@ -13,6 +13,7 @@
 // Привязка хранилища (Settings → Bindings): KV namespace с именем переменной ACCESS.
 //
 // Команды администратора: /myid, /pending (заявки в ожидании), /revoke ID (закрыть доступ).
+// Подключить вебхук: открыть https://<адрес воркера>/setup?key=<WEBHOOK_SECRET>.
 
 const APP_URL = "https://deboshirx.github.io/ege-trainer/";
 const APP_ORIGIN = "https://deboshirx.github.io";
@@ -40,6 +41,14 @@ export default {
 
     // Проверка доступа из мини-аппа
     if (url.pathname === "/check") return handleCheck(request, env);
+
+    // Одноразовая настройка вебхука без ручного ввода токена:
+    // откройте https://<адрес воркера>/setup?key=<WEBHOOK_SECRET>
+    if (url.pathname === "/setup") {
+      if (!env.WEBHOOK_SECRET || url.searchParams.get("key") !== env.WEBHOOK_SECRET) return new Response("forbidden", { status: 403 });
+      const r = await tg(env, "setWebhook", { url: url.origin + "/", secret_token: env.WEBHOOK_SECRET, allowed_updates: ["message", "callback_query"] });
+      return new Response(r ? await r.text() : "BOT_TOKEN не задан", { headers: { "Content-Type": "application/json; charset=utf-8" } });
+    }
 
     // Проверка, что воркер жив
     if (request.method !== "POST") return new Response("Бот работает ✅");
@@ -229,6 +238,6 @@ async function tg(env, method, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) console.log(method, r.status, await r.text());
+  if (!r.ok) console.log(method, r.status, await r.clone().text());
   return r;
 }
