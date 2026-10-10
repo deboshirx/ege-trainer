@@ -7,6 +7,8 @@ const path = require('path');
 global.window = { SUBJECTS: [] };
 const dir = path.join(__dirname, '..', 'subjects');
 fs.readdirSync(dir).filter(f => f.endsWith('.js')).forEach(f => require(path.join(dir, f)));
+const xdir = path.join(__dirname, '..', 'extra');
+if (fs.existsSync(xdir)) fs.readdirSync(xdir).filter(f => f.endsWith('.js')).sort().forEach(f => require(path.join(xdir, f)));
 require(path.join(__dirname, '..', 'pictures.js'));
 require(path.join(__dirname, '..', 'figures.js'));
 
@@ -17,6 +19,7 @@ const { isRight } = new Function(normSrc + '\n' + isRightSrc + '\nreturn { isRig
 
 const EXPECT = { 'math-profile': 19, 'math-base': 21, russian: 27, social: 25, history: 21, biology: 28, chemistry: 34, physics: 26, literature: 11 };
 let errors = 0, total = 0;
+const seenQ = new Set();
 const err = m => { errors++; console.log('  ✗ ' + m); };
 for (const s of window.SUBJECTS) {
   const nums = s.data.map(t => t.n);
@@ -36,6 +39,7 @@ for (const s of window.SUBJECTS) {
       total++;
       const id = `№${t.n} вариант ${i + 1}`;
       if (!x.q || !x.s || !x.s.length) err(`${id}: нет условия или решения`);
+      const qk = s.id + '|' + t.n + '|' + x.q; if (seenQ.has(qk)) err(`${id}: повторяет другое задание`); seenQ.add(qk);
       if (x.fig) { try { const svg = window.FIG.render(x.fig); if (!/<svg/.test(svg) || /NaN|undefined/.test(svg)) err(`${id}: рисунок не построился`); } catch (e) { err(`${id}: ошибка рисунка ${e.message}`); } }
       if ((x.q.match(/\$/g) || []).length % 2) err(`${id}: непарный $ в формуле`);
       if (t.kind === 'long') { if (!x.ans) err(`${id}: нет образца ответа`); return; }
