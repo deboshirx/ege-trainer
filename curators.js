@@ -6,5 +6,6 @@
                 'biology', 'chemistry', 'physics', 'literature', или 'all' — все предметы;
    - about    — короткое описание (необязательно). */
 window.CURATORS = [
-  { name: 'Куратор Тренажёра', username: 'deboshirx', subjects: ['all'], about: 'Разберу любое задание и объясню, где ошибка' }
+  { name: 'Куратор по математике и русскому', username: 'gortopss1', subjects: ['math-profile', 'russian'], about: 'Профильная математика и русский язык' },
+  { name: 'Куратор по химии и биологии', username: 'beaty052', subjects: ['chemistry', 'biology'], about: 'Химия и биология' }
 ];

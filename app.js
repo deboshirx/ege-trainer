@@ -289,13 +289,14 @@ function renderTask() {
         inp.className = 'bad'; fb.className = 'fb bad'; fb.textContent = 'Неверно. Попробуй ещё раз или открой решение';
         state.results[state.pos] = 'bad'; haptic('error');
         lastAnswer = inp.value.trim();
-        document.getElementById('curBtn').classList.remove('hidden');
+        const cb = document.getElementById('curBtn'); if (cb) cb.classList.remove('hidden');
       }
     };
     document.getElementById('check').onclick = check;
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
   }
-  document.getElementById('curBtn').onclick = () => { haptic('sel'); openCurators({ n, i, t, x, short, answer: lastAnswer }); };
+  if (!curatorsFor(subject.id).length) document.getElementById('curBtn').remove();
+  else document.getElementById('curBtn').onclick = () => { haptic('sel'); openCurators({ n, i, t, x, short, answer: lastAnswer }); };
   document.getElementById('next').onclick = () => {
     if (state.results[state.pos] === undefined) state.results[state.pos] = short ? 'skip' : 'seen';
     if (state.pos < total - 1) { state.pos++; renderTask(); } else renderResults();
